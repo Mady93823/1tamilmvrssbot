@@ -100,13 +100,7 @@ def start(message):
     )
 
 
-@bot.callback_query_handler(func=lambda call: True)
-def callback_query(call):
-    global real_dict
-    for key, value in enumerate(movie_list):
-        if call.data == f"{key}":
-            if value in real_dict.keys():
-                for i in real_dict[value]:
+
 @bot.callback_query_handler(func=lambda call: True)
 def callback_query(call):
     # Handle Download Button
