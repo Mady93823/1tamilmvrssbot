@@ -36,18 +36,30 @@ app = Flask(__name__)
 movie_list = []
 real_dict = {}
 
+# Global variables
+movie_list = []
+real_dict = {}
+
 # Initialize Pyrogram
 api_id = os.getenv('API_ID')
 api_hash = os.getenv('API_HASH')
 p_client = None
+pyro_loop = asyncio.new_event_loop()
 
-if api_id and api_hash:
-    try:
-        p_client = Client("my_bot", api_id=api_id, api_hash=api_hash, bot_token=TOKEN)
-        p_client.start()
-        logger.info("Pyrogram Client Started")
-    except Exception as e:
-        logger.error(f"Pyrogram Error: {e}")
+def start_pyro_thread():
+    asyncio.set_event_loop(pyro_loop)
+    global p_client
+    if api_id and api_hash:
+        try:
+            p_client = Client("my_bot", api_id=api_id, api_hash=api_hash, bot_token=TOKEN)
+            pyro_loop.run_until_complete(p_client.start())
+            logger.info("Pyrogram Client Started in Background Loop")
+        except Exception as e:
+            logger.error(f"Pyrogram Error: {e}")
+    pyro_loop.run_forever()
+
+# Start Async Worker Thread
+threading.Thread(target=start_pyro_thread, daemon=True).start()
 
 # /start command
 
@@ -122,12 +134,11 @@ def callback_query(call):
             bot.answer_callback_query(call.id, "✅ Starting Download & Upload...")
             msg = bot.send_message(call.message.chat.id, "<b>Please Wait... Connecting to Server...</b>")
             
-            # Start background thread for download/upload
-            # We use a thread to run the async function in a new event loop/thread safe way
-            threading.Thread(
-                target=run_async_download,
-                args=(magnet_link, msg, p_client, call.message.chat.id)
-            ).start()
+            # Start background task in the Pyrogram loop
+            asyncio.run_coroutine_threadsafe(
+                download_and_upload(magnet_link, msg, p_client, call.message.chat.id),
+                pyro_loop
+            )
             
         except Exception as e:
             logger.error(f"Download Callback Error: {e}")
@@ -152,11 +163,7 @@ def callback_query(call):
                         reply_markup=markup
                     )
 
-def run_async_download(magnet, msg, app, chat_id):
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    loop.run_until_complete(download_and_upload(magnet, msg, app, chat_id))
-    loop.close()
+
 
 def makeKeyboard(movie_list):
     markup = types.InlineKeyboardMarkup()
