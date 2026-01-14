@@ -12,4 +12,7 @@ pybase64
 regex
 lxml
 bs4
+qbittorrent-api
+pyrogram
+tgcrypto
 # ======== SudoR2spr ========🎉 v2.0 ==

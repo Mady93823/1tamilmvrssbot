@@ -7,6 +7,11 @@ import requests
 from bs4 import BeautifulSoup
 from flask import Flask, request
 import logging
+import asyncio
+import threading
+from pyrogram import Client
+from .downloader import download_and_upload
+
 
 # Configure logging
 logging.basicConfig(
@@ -19,7 +24,7 @@ load_dotenv()
 # ============ WOODctaft =================
 TOKEN = os.getenv('TOKEN')
 WEBHOOK_URL = os.getenv('WEBHOOK_URL')
-TAMILMV_URL = os.getenv('TAMILMV_URL', 'https://www.1tamilmv.boo')
+TAMILMV_URL = os.getenv('TAMILMV_URL', 'https://www.1tamilmv.do')
 PORT = int(os.getenv('PORT', 3000))
 # ========================================
 bot = telebot.TeleBot(TOKEN, parse_mode='HTML')
@@ -30,6 +35,19 @@ app = Flask(__name__)
 # Global variables
 movie_list = []
 real_dict = {}
+
+# Initialize Pyrogram
+api_id = os.getenv('API_ID')
+api_hash = os.getenv('API_HASH')
+p_client = None
+
+if api_id and api_hash:
+    try:
+        p_client = Client("my_bot", api_id=api_id, api_hash=api_hash, bot_token=TOKEN)
+        p_client.start()
+        logger.info("Pyrogram Client Started")
+    except Exception as e:
+        logger.error(f"Pyrogram Error: {e}")
 
 # /start command
 
@@ -89,8 +107,61 @@ def callback_query(call):
         if call.data == f"{key}":
             if value in real_dict.keys():
                 for i in real_dict[value]:
-                    bot.send_message(call.message.chat.id, text=i)
+@bot.callback_query_handler(func=lambda call: True)
+def callback_query(call):
+    # Handle Download Button
+    if call.data.startswith('down_'):
+        if not p_client:
+            bot.answer_callback_query(call.id, "❌ Auto-upload not configured properly.")
+            return
 
+        try:
+            _, movie_idx, link_idx = call.data.split('_')
+            movie_idx = int(movie_idx)
+            link_idx = int(link_idx)
+            
+            movie_title = movie_list[movie_idx]
+            magnet_link = real_dict[movie_title][link_idx]['magnet']
+            
+            bot.answer_callback_query(call.id, "✅ Starting Download & Upload...")
+            msg = bot.send_message(call.message.chat.id, "<b>Please Wait... Connecting to Server...</b>")
+            
+            # Start background thread for download/upload
+            # We use a thread to run the async function in a new event loop/thread safe way
+            threading.Thread(
+                target=run_async_download,
+                args=(magnet_link, msg, p_client, call.message.chat.id)
+            ).start()
+            
+        except Exception as e:
+            logger.error(f"Download Callback Error: {e}")
+            bot.answer_callback_query(call.id, "❌ Error starting download.")
+        return
+
+    # Handle Movie Selection
+    global real_dict
+    for key, value in enumerate(movie_list):
+        if call.data == f"{key}":
+            if value in real_dict.keys():
+                for idx, item in enumerate(real_dict[value]):
+                    # Create Download Button
+                    markup = types.InlineKeyboardMarkup()
+                    markup.add(types.InlineKeyboardButton(
+                        text="📥 Download & Upload to Telegram",
+                        callback_data=f"down_{key}_{idx}"
+                    ))
+                    
+                    bot.send_message(
+                        call.message.chat.id, 
+                        text=item['message'],
+                        reply_markup=markup
+                    )
+
+def run_async_download(magnet, msg, app, chat_id):
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    loop.run_until_complete(download_and_upload(magnet, msg, app, chat_id))
+    loop.close()
 
 def makeKeyboard(movie_list):
     markup = types.InlineKeyboardMarkup()
@@ -173,7 +244,10 @@ def get_movie_details(url):
 📥 <b>Torrent File:</b> Not Available
 """
 
-            movie_details.append(message)
+            movie_details.append({
+                'message': message,
+                'magnet': mag[p]
+            })
 
         return movie_details
     except Exception as e:
