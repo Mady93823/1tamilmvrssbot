@@ -23,7 +23,7 @@ def get_qb_client():
         qb.auth_log_in()
         return qb
     except Exception as e:
-        logger.error(f"Failed to connect to qBittorrent: {e}")
+        logger.exception(f"Failed to connect to qBittorrent: {e}")
         return None
 
 async def download_and_upload(magnet_link, bot_msg, app: PyrogramClient, chat_id):
