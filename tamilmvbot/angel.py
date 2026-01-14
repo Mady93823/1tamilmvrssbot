@@ -103,6 +103,8 @@ def start(message):
 
 @bot.callback_query_handler(func=lambda call: True)
 def callback_query(call):
+    global real_dict
+    
     # Handle Download Button
     if call.data.startswith('down_'):
         if not p_client:
@@ -133,7 +135,6 @@ def callback_query(call):
         return
 
     # Handle Movie Selection
-    global real_dict
     for key, value in enumerate(movie_list):
         if call.data == f"{key}":
             if value in real_dict.keys():
