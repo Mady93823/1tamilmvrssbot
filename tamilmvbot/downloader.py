@@ -35,7 +35,7 @@ async def download_and_upload(magnet_link, bot_msg, app: PyrogramClient, chat_id
     """
     qb = get_qb_client()
     if not qb:
-        await bot_msg.edit("❌ Failed to connect to qBittorrent server.")
+        await app.edit_message_text(chat_id, bot_msg.message_id, "❌ Failed to connect to qBittorrent server.")
         return
 
     # Add torrent
@@ -48,7 +48,7 @@ async def download_and_upload(magnet_link, bot_msg, app: PyrogramClient, chat_id
         # We can list recent torrents.
         recent_torrents = qb.torrents_info(sort='added_on', reverse=True, limit=1)
         if not recent_torrents:
-             await bot_msg.edit("❌ Failed to add torrent.")
+             await app.edit_message_text(chat_id, bot_msg.message_id, "❌ Failed to add torrent.")
              return
         
         info = recent_torrents[0]
@@ -77,7 +77,7 @@ async def download_and_upload(magnet_link, bot_msg, app: PyrogramClient, chat_id
                 # Update every 5 seconds to avoid flooding
                 if time.time() - start_time > 5:
                     try:
-                        await bot_msg.edit(text)
+                        await app.edit_message_text(chat_id, bot_msg.message_id, text)
                         start_time = time.time()
                     except:
                         pass
@@ -86,11 +86,11 @@ async def download_and_upload(magnet_link, bot_msg, app: PyrogramClient, chat_id
                 
             elif state in ['uploading', 'stalledUP', 'queuedUP', 'checkingUP', 'pausedUP']:
                 # Completed
-                await bot_msg.edit("<b>✅ Download Completed. Processing files...</b>")
+                await app.edit_message_text(chat_id, bot_msg.message_id, "<b>✅ Download Completed. Processing files...</b>")
                 break
                 
             elif state in ['error', 'missingFiles']:
-                await bot_msg.edit("❌ Download Failed on Server.")
+                await app.edit_message_text(chat_id, bot_msg.message_id, "❌ Download Failed on Server.")
                 qb.torrents_delete(torrent_hashes=torrent_hash, delete_files=True)
                 return
             
@@ -114,7 +114,7 @@ async def download_and_upload(magnet_link, bot_msg, app: PyrogramClient, chat_id
                  files_to_upload.append(save_path)
 
         if not files_to_upload:
-            await bot_msg.edit(f"❌ No files found smaller than {hrb(MAX_SIZE)}.")
+            await app.edit_message_text(chat_id, bot_msg.message_id, f"❌ No files found smaller than {hrb(MAX_SIZE)}.")
             qb.torrents_delete(torrent_hashes=torrent_hash, delete_files=True)
             return
 
@@ -122,7 +122,7 @@ async def download_and_upload(magnet_link, bot_msg, app: PyrogramClient, chat_id
         count = 1
         for f_path in files_to_upload:
             filename = os.path.basename(f_path)
-            await bot_msg.edit(f"<b>📤 Uploading file {count}/{len(files_to_upload)}...</b>\n<code>{filename}</code>")
+            await app.edit_message_text(chat_id, bot_msg.message_id, f"<b>📤 Uploading file {count}/{len(files_to_upload)}...</b>\n<code>{filename}</code>")
             
             start_up = time.time()
             try:
@@ -132,19 +132,19 @@ async def download_and_upload(magnet_link, bot_msg, app: PyrogramClient, chat_id
                     document=f_path,
                     caption=f"<code>{filename}</code>",
                     progress=progress_callback,
-                    progress_args=(bot_msg, start_up, f"📤 Uploading {count}/{len(files_to_upload)}")
+                    progress_args=(app, chat_id, bot_msg.message_id, start_up, f"📤 Uploading {count}/{len(files_to_upload)}")
                 )
                 count += 1
             except Exception as e:
                 logger.error(f"Upload failed: {e}")
                 await app.send_message(chat_id, f"❌ Failed to upload {filename}: {e}")
 
-        await bot_msg.edit("<b>✅ All valid files uploaded!</b>")
+        await app.edit_message_text(chat_id, bot_msg.message_id, "<b>✅ All valid files uploaded!</b>")
         
         # Cleanup
         qb.torrents_delete(torrent_hashes=torrent_hash, delete_files=True)
 
     except Exception as e:
         logger.error(f"Downloader error: {e}")
-        await bot_msg.edit(f"❌ An error occurred: {e}")
+        await app.edit_message_text(chat_id, bot_msg.message_id, f"❌ An error occurred: {e}")
 

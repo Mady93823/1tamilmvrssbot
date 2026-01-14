@@ -42,10 +42,9 @@ def progress_bar_str(percentage: float) -> str:
     p_free = 10 - p_used
     return "⬢" * p_used + "⬡" * p_free
 
-async def progress_callback(current, total, message, start_time, status_type="Uploading"):
+async def progress_callback(current, total, app, chat_id, message_id, start_time, status_type="Uploading"):
     """
     Callback function for Pyrogram's progress updates.
-    Updates the message every few seconds to avoid flood waits.
     """
     now = time.time()
     diff = now - start_time
@@ -65,7 +64,6 @@ async def progress_callback(current, total, message, start_time, status_type="Up
         text += f"<b>🕒 Elapsed:</b> {get_readable_time(elapsed_time)}"
         
         try:
-            await message.edit(text)
+            await app.edit_message_text(chat_id, message_id, text)
         except Exception as e:
-            # Ignore specific errors like "Message Not Modified"
             pass
