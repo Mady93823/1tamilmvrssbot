@@ -19,7 +19,18 @@ logger = logging.getLogger(__name__)
 # Connect to qBittorrent
 def get_qb_client():
     try:
-        qb = Client(host=QBIT_HOST, port=QBIT_PORT, username=QBIT_USER, password=QBIT_PASS)
+        qb = Client(
+            host=QBIT_HOST, 
+            port=QBIT_PORT, 
+            username=QBIT_USER, 
+            password=QBIT_PASS,
+            REQUESTS_ARGS={'timeout': (30, 60)},
+            HTTPADAPTER_ARGS={
+                "pool_maxsize": 500,
+                "max_retries": 10,
+                "pool_block": True,
+            }
+        )
         qb.auth_log_in()
         return qb
     except Exception as e:
