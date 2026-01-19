@@ -46,17 +46,23 @@ api_hash = os.getenv('API_HASH')
 p_client = None
 pyro_loop = asyncio.new_event_loop()
 
+
 def start_pyro_thread():
     asyncio.set_event_loop(pyro_loop)
     global p_client
     if api_id and api_hash:
         try:
-            p_client = Client("my_bot", api_id=api_id, api_hash=api_hash, bot_token=TOKEN)
+            p_client = Client(
+                "my_bot",
+                api_id=api_id,
+                api_hash=api_hash,
+                bot_token=TOKEN)
             pyro_loop.run_until_complete(p_client.start())
             logger.info("Pyrogram Client Started in Background Loop")
         except Exception as e:
             logger.error(f"Pyrogram Error: {e}")
     pyro_loop.run_forever()
+
 
 # Start Async Worker Thread
 threading.Thread(target=start_pyro_thread, daemon=True).start()
@@ -112,34 +118,40 @@ def start(message):
     )
 
 
-
 @bot.callback_query_handler(func=lambda call: True)
 def callback_query(call):
     global real_dict
-    
+
     # Handle Download Button
     if call.data.startswith('down_'):
         if not p_client:
-            bot.answer_callback_query(call.id, "❌ Auto-upload not configured properly.")
+            bot.answer_callback_query(
+                call.id, "❌ Auto-upload not configured properly.")
             return
 
         try:
             _, movie_idx, link_idx = call.data.split('_')
             movie_idx = int(movie_idx)
             link_idx = int(link_idx)
-            
+
             movie_title = movie_list[movie_idx]
             magnet_link = real_dict[movie_title][link_idx]['magnet']
-            
-            bot.answer_callback_query(call.id, "✅ Starting Download & Upload...")
-            msg = bot.send_message(call.message.chat.id, "<b>Please Wait... Connecting to Server...</b>")
-            
+
+            bot.answer_callback_query(
+                call.id, "✅ Starting Download & Upload...")
+            msg = bot.send_message(
+                call.message.chat.id,
+                "<b>Please Wait... Connecting to Server...</b>")
+
             # Start background task in the Pyrogram loop
             asyncio.run_coroutine_threadsafe(
-                download_and_upload(magnet_link, msg, p_client, call.message.chat.id),
-                pyro_loop
-            )
-            
+                download_and_upload(
+                    magnet_link,
+                    msg,
+                    p_client,
+                    call.message.chat.id),
+                pyro_loop)
+
         except Exception as e:
             logger.error(f"Download Callback Error: {e}")
             bot.answer_callback_query(call.id, "❌ Error starting download.")
@@ -156,13 +168,12 @@ def callback_query(call):
                         text="📥 Download & Upload to Telegram",
                         callback_data=f"down_{key}_{idx}"
                     ))
-                    
+
                     bot.send_message(
-                        call.message.chat.id, 
+                        call.message.chat.id,
                         text=item['message'],
                         reply_markup=markup
                     )
-
 
 
 def makeKeyboard(movie_list):

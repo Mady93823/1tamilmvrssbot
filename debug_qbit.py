@@ -19,7 +19,11 @@ print(f"Attempting to connect to: http://{QBIT_HOST}:{QBIT_PORT}")
 print(f"User: {QBIT_USER}")
 
 try:
-    qb = Client(host=QBIT_HOST, port=QBIT_PORT, username=QBIT_USER, password=QBIT_PASS)
+    qb = Client(
+        host=QBIT_HOST,
+        port=QBIT_PORT,
+        username=QBIT_USER,
+        password=QBIT_PASS)
     qb.auth_log_in()
     print("✅ Connection Successful!")
     print(f"qBittorrent Version: {qb.app.version}")
